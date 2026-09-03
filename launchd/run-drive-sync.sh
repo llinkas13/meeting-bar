@@ -2,14 +2,14 @@
 # run-drive-sync.sh — the wrapper launchd calls. Same PATH problem, same fix as
 # menubar/refresh-events.sh: a launchd job gets a minimal PATH and cannot find `node` on its own.
 #
-# Log: ~/Library/Logs/meeting-notification-bar/drive-sync.log  (rotated past ~256 KB)
+# Log: ~/Library/Logs/meeting-bar/drive-sync.log  (rotated past ~256 KB)
 #
 # Usage:  bash launchd/run-drive-sync.sh [--dry-run ...]   (extra flags pass through)
 
 set -uo pipefail
 
-HOME_DIR="${MNB_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-LOG_DIR="$HOME/Library/Logs/meeting-notification-bar"
+HOME_DIR="${MEETING_BAR_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+LOG_DIR="$HOME/Library/Logs/meeting-bar"
 LOG="$LOG_DIR/drive-sync.log"
 
 PATH_BASE="$HOME/.local/bin:$HOME/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -21,7 +21,7 @@ for d in "${NVM_DIR:-$HOME/.nvm}/current/bin" "${ASDF_DATA_DIR:-$HOME/.asdf}/shi
   esac
 done
 export PATH="$PATH_BASE$PATH_EXTRA${PATH:+:$PATH}"
-export MNB_HOME="$HOME_DIR"
+export MEETING_BAR_HOME="$HOME_DIR"
 
 mkdir -p "$LOG_DIR"
 if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" | tr -d ' ')" -gt 262144 ]; then

@@ -1,4 +1,4 @@
-// NextMeeting.swift — menu bar countdown to your next meeting.
+// MeetingBar.swift — menu bar countdown to your next meeting.
 //
 // Shows one line in the macOS menu bar: the next meeting's title and how long until it starts,
 // or, once it has begun, how much of it is left. Clicking opens the rest of the day.
@@ -9,8 +9,8 @@
 //
 // Where the data comes from: this app reads a JSON file and nothing else. It never talks to
 // Google, and it never talks to an LLM. `menubar/refresh-events.sh` runs `bin/fetch-events.js`
-// and writes ~/Library/Application Support/meeting-notification-bar/events.json (or
-// $MNB_EVENTS_FILE, when set — see EventStore.jsonURL); this app spawns that script when the file
+// and writes ~/Library/Application Support/meeting-bar/events.json (or
+// $MEETING_BAR_EVENTS_FILE, when set — see EventStore.jsonURL); this app spawns that script when the file
 // goes stale. The reason for the indirection is that a GUI app inherits a minimal PATH with no
 // mise/nvm/asdf shims, so it cannot find `node` itself.
 //
@@ -121,20 +121,20 @@ final class EventStore {
         lastLoad = Date()
     }
 
-    /// $MNB_EVENTS_FILE overrides this when set, so another system can drive the display (or a
+    /// $MEETING_BAR_EVENTS_FILE overrides this when set, so another system can drive the display (or a
     /// test can point at fixture data) without forking the app. `refresh-events.sh` and
     /// `lib/paths.js` both honour the same variable — all three must agree on one path.
     static let jsonURL: URL = {
-        if let override = ProcessInfo.processInfo.environment["MNB_EVENTS_FILE"], !override.isEmpty {
+        if let override = ProcessInfo.processInfo.environment["MEETING_BAR_EVENTS_FILE"], !override.isEmpty {
             return URL(fileURLWithPath: override)
         }
         return FileManager.default
             .homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/meeting-notification-bar/events.json")
+            .appendingPathComponent("Library/Application Support/meeting-bar/events.json")
     }()
 
     /// The refresh script, located inside this app bundle so a moved checkout still works.
-    /// Bundle layout: NextMeeting.app/Contents/MacOS/NextMeeting, and the script is installed
+    /// Bundle layout: MeetingBar.app/Contents/MacOS/MeetingBar, and the script is installed
     /// alongside at Contents/Resources/refresh-events.sh.
     static var scriptURL: URL? {
         Bundle.main.url(forResource: "refresh-events", withExtension: "sh")
@@ -221,7 +221,7 @@ final class EventStore {
             task.standardOutput = FileHandle.nullDevice
             task.standardError = FileHandle.nullDevice
             // The script logs the detail of its own failures to
-            // ~/Library/Logs/meeting-notification-bar/menubar.log and leaves the previous good JSON
+            // ~/Library/Logs/meeting-bar/menubar.log and leaves the previous good JSON
             // in place. We still need the exit status here, though: without it the app cannot tell
             // "fetched fresh data" from "kept yesterday's", and silently showing the second as if it
             // were the first is the failure that hides an expired token for days.
@@ -811,7 +811,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 // MARK: - Self test
 
-/// `NextMeeting --selftest` checks the two things worth checking without a GUI: that the JSON the
+/// `MeetingBar --selftest` checks the two things worth checking without a GUI: that the JSON the
 /// vault's fetcher actually emits decodes (including older files that predate joinUrl), and that
 /// status() picks the right event against a fixed clock. Exits nonzero on the first failure.
 enum SelfTest {
@@ -964,7 +964,7 @@ enum SelfTest {
     }
 }
 
-/// `NextMeeting --print` runs the real pipeline once — refresh script, JSON read, decode, status —
+/// `MeetingBar --print` runs the real pipeline once — refresh script, JSON read, decode, status —
 /// and prints exactly what the menu bar would show, then exits. This is the diagnostic to reach for
 /// when the menu bar looks wrong, because it separates "the data is wrong" from "the drawing is
 /// wrong", and unlike the GUI it can be read from a terminal or a log.
@@ -1031,7 +1031,7 @@ enum PrintOnce {
 }
 
 @main
-enum NextMeeting {
+enum MeetingBar {
     static func main() {
         if CommandLine.arguments.contains("--selftest") { SelfTest.run() }
         if CommandLine.arguments.contains("--print") { PrintOnce.run() }

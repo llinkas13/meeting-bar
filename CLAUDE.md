@@ -1,4 +1,4 @@
-# meeting-notification-bar — rules for agents
+# meeting-bar — rules for agents
 
 **Installing this for the first time? Read `SETUP.md` first.** It is the install handoff and names
 the two steps you cannot do yourself. This file is the standing rules; that file is the procedure.
@@ -26,7 +26,7 @@ To hand a command over in Claude Code, ask the user to paste it with a `!` prefi
 output: `! node bin/auth.js --login`.
 
 **`uninstall.sh` cannot be safely tested in a sandbox.** Overriding `$HOME` and copying the script
-somewhere temporary is not enough: it also calls `launchctl` and `pkill -f NextMeeting`, and neither
+somewhere temporary is not enough: it also calls `launchctl` and `pkill -f MeetingBar`, and neither
 honours `$HOME`. Both reach the live machine from any working directory. That is not hypothetical —
 it has killed the running menu bar twice, once from a `--help` probe and once from a run against a
 copy under a fake `$HOME`. Read this file rather than executing it, at any flag.
@@ -55,14 +55,29 @@ rely on a list of dangerous commands to keep you safe: nobody typed `launchctl` 
 ready**, and it prints a count of what is wrong. Read the code, not the prose above it. Re-run it
 after each step.
 
-The same rule applies to the app itself. `NextMeeting --print` is the diagnostic worth learning: it
+The same rule applies to the app itself. `MeetingBar --print` is the diagnostic worth learning: it
 prints what the menu bar is drawing, which file it came from, and **how stale that file is**. A
 large `file age` means the fetch is failing while the display looks fine — the designed failure mode
 is stale-not-blank, so a frozen countdown is not a crash. `tail -20
-~/Library/Logs/meeting-notification-bar/menubar.log` names the reason.
+~/Library/Logs/meeting-bar/menubar.log` names the reason.
 
 You cannot see the menu bar. A running process is not proof anything is drawn — ask the human to
 look.
+
+## The rename
+
+This project was `meeting-notification-bar`, its app was `NextMeeting.app`, its bundle id was
+`io.llinkas.meeting-notification-bar` and its env vars were `MNB_*`. All of that is now `meeting-bar`
+/ `MeetingBar.app` / `io.llinkas.meeting-bar` / `MEETING_BAR_*`. If you find an old name anywhere but
+the deliberate legacy-cleanup paths in `uninstall.sh`, `setup.sh` and `menubar/build.sh`, it is a
+miss — fix it rather than adding a compatibility shim.
+
+The old names survive in exactly one role: removing a pre-rename install. `uninstall.sh
+--legacy-only` does that and nothing else. It matches the old app by **bundle identifier, never by
+the name NextMeeting** — the separate `meeting-vault` variant installs an app of that name at the
+same path, and `pkill -f NextMeeting` or `rm -rf ~/Applications/NextMeeting.app` would take out an
+unrelated menu bar. That is the same name-versus-path lesson as the sandbox note above, met from the
+other direction.
 
 ## Things that look like bugs and are not
 
@@ -77,4 +92,4 @@ look.
 
 Re-read the file from disk immediately before editing it; a human may be working in parallel.
 Run `node --test` (no network, no credentials needed) and, for Swift changes,
-`menubar/build/NextMeeting.app/Contents/MacOS/NextMeeting --selftest`. Both must stay green.
+`menubar/build/MeetingBar.app/Contents/MacOS/MeetingBar --selftest`. Both must stay green.

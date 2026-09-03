@@ -1,4 +1,4 @@
-# meeting-notification-bar
+# meeting-bar
 
 ## What it is: 
 
@@ -21,8 +21,8 @@ Nothing — it starts at login and refreshes itself. When something looks wrong:
 
 ```bash
 node bin/auth.js --check                                          # is Google answering?
-~/Applications/NextMeeting.app/Contents/MacOS/NextMeeting --print   # what the menu bar thinks
-tail -20 ~/Library/Logs/meeting-notification-bar/menubar.log
+~/Applications/MeetingBar.app/Contents/MacOS/MeetingBar --print   # what the menu bar thinks
+tail -20 ~/Library/Logs/meeting-bar/menubar.log
 ```
 
 ## Requirements
@@ -38,7 +38,7 @@ Verify it yourself:
 
 ```bash
 grep -rin 'claude\|anthropic\|openai\|mcp' --include='*.js' --include='*.swift' --include='*.sh' .
-launchctl list | grep meeting-notification-bar
+launchctl list | grep meeting-bar
 ```
 
 Every host the code reaches: `googleapis.com`, `oauth2.googleapis.com`, `accounts.google.com` (consent), `127.0.0.1` (redirect listener). Nothing else.
@@ -47,8 +47,8 @@ Every host the code reaches: `googleapis.com`, `oauth2.googleapis.com`, `account
 ## Install (~15 min)
 
 ```bash
-git clone https://github.com/llinkas13/meeting-notification-bar.git
-cd meeting-notification-bar
+git clone https://github.com/llinkas13/meeting-bar.git
+cd meeting-bar
 
 # 1. Make your own OAuth client — docs/google-cloud-setup.md, ~10 min
 # This JSON must come from a Google Cloud project YOU create. A shared/reused one
@@ -98,7 +98,7 @@ Never overwrites an existing file without `--force`. Read-only Drive scope, so i
 ## Repo layout
 
 ```
-meeting-notification-bar/
+meeting-bar/
 ├── bin/                       entry-point scripts
 │   ├── auth.js                --login / --check / --logout
 │   ├── fetch-events.js        today's events → JSON on stdout
@@ -110,7 +110,7 @@ meeting-notification-bar/
 │   ├── config.js              defaults, timezone resolution
 │   └── paths.js               shared file locations
 ├── menubar/                   the Swift menu bar app
-│   ├── NextMeeting.swift      NSStatusItem + SwiftUI panel
+│   ├── MeetingBar.swift        NSStatusItem + SwiftUI panel
 │   ├── refresh-events.sh      runs the fetcher, writes JSON atomically
 │   └── build.sh               swiftc → .app bundle, no Xcode project
 ├── launchd/                   Drive-sync LaunchAgent installer
@@ -126,8 +126,8 @@ meeting-notification-bar/
 Data lives outside the repo:
 
 ```
-~/Library/Application Support/meeting-notification-bar/   events.json, drive-sync-state.json
-~/Library/Logs/meeting-notification-bar/                   menubar.log, drive-sync.log, *.launchd.log
+~/Library/Application Support/meeting-bar/   events.json, drive-sync-state.json
+~/Library/Logs/meeting-bar/                  menubar.log, drive-sync.log, *.launchd.log
 ```
 
 
@@ -144,7 +144,7 @@ A failed fetch keeps the last good data instead of blanking — so a broken inst
 Retries back off on a ladder (15s, 60s, then every 5 min). Roughly one `FAIL` line per 5 min during an outage is healthy; much faster means the backoff itself is broken:
 
 ```bash
-L=~/Library/Logs/meeting-notification-bar/menubar.log
+L=~/Library/Logs/meeting-bar/menubar.log
 grep -c FAIL "$L"
 grep -E '^[0-9]{4}-' "$L" | awk '{print substr($2,1,5)}' | uniq -c | tail
 ```
@@ -153,16 +153,16 @@ Moved or renamed the checkout? Expect `not authorized yet` — the bundle stamps
 
 ### Overrides
 
-- `$MNB_EVENTS_FILE` — events.json location. Set for both the app and `refresh-events.sh`, or they'll disagree.
-- `$MNB_HOME` — points the Node side at a different checkout (stamped into the bundle by `build.sh`).
-- `$MNB_CONFIG` — points at a different `config.json` (used by the test suite).
+- `$MEETING_BAR_EVENTS_FILE` — events.json location. Set for both the app and `refresh-events.sh`, or they'll disagree.
+- `$MEETING_BAR_HOME` — points the Node side at a different checkout (stamped into the bundle by `build.sh`).
+- `$MEETING_BAR_CONFIG` — points at a different `config.json` (used by the test suite).
 
 
 ## Tests
 
 ```bash
 node --test                                                          # 15 checks, no network/GUI
-menubar/build/NextMeeting.app/Contents/MacOS/NextMeeting --selftest    # 43 checks, no network/GUI
+menubar/build/MeetingBar.app/Contents/MacOS/MeetingBar --selftest    # 43 checks, no network/GUI
 ```
 
 Neither talks to Google. The three lines that do are exercised by `node bin/auth.js --check`.
@@ -176,17 +176,45 @@ bash uninstall.sh --purge    # also delete cached events, sync state, logs, toke
 
 Synced notes are never touched — revoke the Google grant at <https://myaccount.google.com/permissions>.
 
+## Upgrading from meeting-notification-bar
+
+This was called **meeting-notification-bar** and its app was **NextMeeting.app**. The rename changed
+the bundle identifier, the app name, the LaunchAgent labels and the support directories, so a new
+install does not replace an old one — it sits beside it. Until the old one is removed you get two
+countdowns, both starting at login, and only one of them reads this checkout.
+
+```bash
+bash uninstall.sh --legacy-only --dry-run   # what would go, nothing changed
+bash uninstall.sh --legacy-only             # remove only the pre-rename install
+bash uninstall.sh --legacy-only --purge     # also its data and log directories
+```
+
+`--legacy-only` never touches `meeting-bar`'s own app, agents, directories or OAuth token, so it is
+safe to run after installing the new version. It identifies the old app by bundle id rather than by
+name: `~/Applications/NextMeeting.app` is also where the separate `meeting-vault` variant installs,
+and it leaves that one alone.
+
+Nothing needs migrating. `events.json` is rewritten on every refresh and the logs are disposable —
+the only file worth keeping is `.secrets/token.json`, which lives in the checkout and is untouched
+by the rename. `setup.sh --check` and `build.sh --install` both warn when a pre-rename install is
+still present.
+
+Old environment variables were renamed too: `$MNB_HOME`, `$MNB_EVENTS_FILE` and `$MNB_CONFIG` are now
+`$MEETING_BAR_HOME`, `$MEETING_BAR_EVENTS_FILE` and `$MEETING_BAR_CONFIG`. There is no fallback to
+the old names — a silently ignored `$MNB_HOME` would point the fetcher at the wrong checkout, which
+is the exact failure this project keeps a `--print` diagnostic for.
+
 ## Known rough edges
 
 - Countdown rounds seconds up: 19m59s reads `19m left`.
 - Today only — tomorrow's 9am shows as `No meetings` once today's list ends.
 - Multi-monitor: panel opens on the screen with the menu bar item, clamped to that screen.
-- Running the `meeting-vault` variant too? Both want `~/Applications/NextMeeting.app` — `build.sh --install` refuses rather than clobber the other.
+- Running the `meeting-vault` variant too? No longer a conflict — that one installs `NextMeeting.app` and this one installs `MeetingBar.app`. `build.sh --install` still refuses rather than clobber an app at its own path that carries someone else's bundle id.
 
 ## Things that will break if edited
 
 1. **A GUI app can't find `node`.** No PATH shims from Finder/LaunchAgent launch — `refresh-events.sh` rebuilds a usable PATH; that's why the app shells out instead of running `node` directly.
-2. **The bundled script is a shim, not a copy.** It can't walk up from `Contents/Resources` to find the checkout — `build.sh` stamps the absolute path as `MNB_HOME`. Editing `refresh-events.sh` takes effect without rebuilding.
+2. **The bundled script is a shim, not a copy.** It can't walk up from `Contents/Resources` to find the checkout — `build.sh` stamps the absolute path as `MEETING_BAR_HOME`. Editing `refresh-events.sh` takes effect without rebuilding.
 3. **Don't fetch on the 1-second timer.** It only recomputes the display string; real refresh is every `REFRESH_INTERVAL` (300s) plus on wake.
 4. **Keep the monospaced-digit font.** Proportional digits reflow the menu bar on every tick.
 5. **The dropdown is a hand-built `NSPanel`, not `NSPopover`.** A popover leaves a gap for its arrow that can't be turned off. Consequence: `canBecomeKey` must be overridden, and the global close-monitor must skip clicks on the status item — otherwise a click both closes and reopens the panel.

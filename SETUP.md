@@ -56,7 +56,7 @@ Steps 2 and 3 are the only handoffs. Everything else is yours.
 ## Verify
 
 ```
-~/Applications/NextMeeting.app/Contents/MacOS/NextMeeting --print
+~/Applications/MeetingBar.app/Contents/MacOS/MeetingBar --print
 ```
 
 Prints what the menu bar is currently drawing, where it read it from, how stale that file is, and
@@ -69,19 +69,27 @@ process is not proof that anything is drawn.
 ## When it does not work
 
 **`not authorized yet` in the log, but `.secrets/token.json` exists.** The app is pointed at a
-different checkout than the one holding the token. The bundle hard-codes `MNB_HOME` at build time —
-check `~/Applications/NextMeeting.app/Contents/Resources/refresh-events.sh` and confirm the path it
+different checkout than the one holding the token. The bundle hard-codes `MEETING_BAR_HOME` at build time —
+check `~/Applications/MeetingBar.app/Contents/Resources/refresh-events.sh` and confirm the path it
 exports is the checkout you have been working in. Rebuild from the right one.
 
 **Menu bar frozen on old data.** `--print` shows a large `file age`. The app is fine; the refresh is
-failing. `tail -20 ~/Library/Logs/meeting-notification-bar/menubar.log` names the reason. Note the
+failing. `tail -20 ~/Library/Logs/meeting-bar/menubar.log` names the reason. Note the
 app deliberately keeps the last good file rather than blanking — stale beats empty, so a frozen
 countdown is the designed failure mode, not a crash.
 
 **`REFUSING TO INSTALL: ... already belongs to <id>`.** Another checkout owns
-`~/Applications/NextMeeting.app`. Two LaunchAgents pointing at one binary fight silently, so the
+`~/Applications/MeetingBar.app`. Two LaunchAgents pointing at one binary fight silently, so the
 build stops instead. It prints the three commands to clear the other one — those are `launchctl` and
 `rm`, so they are probably a handoff to your user.
+
+**A pre-rename install is a separate app, not an upgrade.** This project used to be
+meeting-notification-bar with a NextMeeting.app. Its bundle id, LaunchAgent label and support
+directories all differ from the current ones, so installing meeting-bar leaves it running and
+starting at login. `bash setup.sh --check` reports it as a warning; clear it with
+`bash uninstall.sh --legacy-only` (add `--dry-run` first). That flag touches nothing belonging to
+meeting-bar, and identifies the old app by bundle id — `~/Applications/NextMeeting.app` is also the
+meeting-vault variant's path, and it is left alone.
 
 **`swiftc not found`.** `xcode-select --install`. Command Line Tools, not the full Xcode download.
 

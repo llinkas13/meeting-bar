@@ -6,16 +6,16 @@
 # minimal PATH with no mise/nvm/asdf/volta shims, so `node` is simply not found — the app appears to
 # work and every refresh silently fails. This wrapper rebuilds a usable PATH first.
 #
-# Output:  ~/Library/Application Support/meeting-notification-bar/events.json
-#          or $MNB_EVENTS_FILE when set — must agree with whatever the app was launched with, or
-#          this script writes one file while NextMeeting reads another.
-# Log:     ~/Library/Logs/meeting-notification-bar/menubar.log   (rotated past ~256 KB)
+# Output:  ~/Library/Application Support/meeting-bar/events.json
+#          or $MEETING_BAR_EVENTS_FILE when set — must agree with whatever the app was launched with, or
+#          this script writes one file while MeetingBar reads another.
+# Log:     ~/Library/Logs/meeting-bar/menubar.log   (rotated past ~256 KB)
 #
 # Written atomically (temp file + mv) so the app never reads a half-written JSON array. On failure
 # the previous good file is left untouched — a stale countdown beats a blank menu bar.
 #
 # Usage:  bash menubar/refresh-events.sh
-#         MNB_EVENTS_FILE=/tmp/fixture.json bash menubar/refresh-events.sh
+#         MEETING_BAR_EVENTS_FILE=/tmp/fixture.json bash menubar/refresh-events.sh
 
 set -uo pipefail
 
@@ -34,19 +34,19 @@ for a in "$@"; do
       exit 0 ;;
     *)
       echo "refresh-events.sh takes no arguments; got: $a" >&2
-      echo "  the output path is set with \$MNB_EVENTS_FILE, not a flag — see --help" >&2
+      echo "  the output path is set with \$MEETING_BAR_EVENTS_FILE, not a flag — see --help" >&2
       exit 2 ;;
   esac
 done
 
-# MNB_HOME wins when set, because the copy of this script inside NextMeeting.app cannot find the
+# MEETING_BAR_HOME wins when set, because the copy of this script inside MeetingBar.app cannot find the
 # checkout by walking up from its own location — two levels up from Contents/Resources is the bundle,
-# not the repo. build.sh installs a shim that exports MNB_HOME and re-execs this file.
-HOME_DIR="${MNB_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-LOG_DIR="$HOME/Library/Logs/meeting-notification-bar"
-DATA_DIR="$HOME/Library/Application Support/meeting-notification-bar"
+# not the repo. build.sh installs a shim that exports MEETING_BAR_HOME and re-execs this file.
+HOME_DIR="${MEETING_BAR_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+LOG_DIR="$HOME/Library/Logs/meeting-bar"
+DATA_DIR="$HOME/Library/Application Support/meeting-bar"
 LOG="$LOG_DIR/menubar.log"
-OUT="${MNB_EVENTS_FILE:-$DATA_DIR/events.json}"
+OUT="${MEETING_BAR_EVENTS_FILE:-$DATA_DIR/events.json}"
 TMP="$OUT.tmp.$$"
 
 # PATH_BASE is the known-good order; PATH_EXTRA adds version managers that exist; the inherited PATH
@@ -78,7 +78,7 @@ trap 'rm -f "$TMP"' EXIT
 
 command -v node >/dev/null 2>&1 || { log "FAIL node not found on PATH ($PATH)"; exit 1; }
 
-export MNB_HOME="$HOME_DIR"
+export MEETING_BAR_HOME="$HOME_DIR"
 
 if node "$HOME_DIR/bin/fetch-events.js" >"$TMP" 2>>"$LOG"; then
   # Guard against a successful exit that wrote nothing usable — an empty file would make the app

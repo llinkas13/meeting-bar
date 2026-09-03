@@ -14,7 +14,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
-LABEL="io.llinkas.meeting-notification-bar.drive-sync"
+LABEL="io.llinkas.meeting-bar.drive-sync"
 PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
 
 if [ "${1:-}" = "--uninstall" ]; then
@@ -29,7 +29,7 @@ case "$INTERVAL" in
   ''|*[!0-9]*) echo "interval must be whole seconds, got: $INTERVAL" >&2; exit 2 ;;
 esac
 
-mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/meeting-notification-bar"
+mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/meeting-bar"
 cat >"$PLIST_PATH" <<AGENT
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -42,10 +42,10 @@ cat >"$PLIST_PATH" <<AGENT
     <string>$REPO/launchd/run-drive-sync.sh</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>MNB_HOME</key><string>$REPO</string></dict>
+  <dict><key>MEETING_BAR_HOME</key><string>$REPO</string></dict>
   <key>StartInterval</key><integer>$INTERVAL</integer>
   <key>RunAtLoad</key><true/>
-  <key>StandardErrorPath</key><string>$HOME/Library/Logs/meeting-notification-bar/drive-sync.launchd.log</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/meeting-bar/drive-sync.launchd.log</string>
 </dict>
 </plist>
 AGENT
@@ -53,4 +53,4 @@ AGENT
 launchctl bootout "gui/$UID/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$UID" "$PLIST_PATH"
 echo "==> $LABEL installed, every ${INTERVAL}s ($PLIST_PATH)"
-echo "==> log: ~/Library/Logs/meeting-notification-bar/drive-sync.log"
+echo "==> log: ~/Library/Logs/meeting-bar/drive-sync.log"

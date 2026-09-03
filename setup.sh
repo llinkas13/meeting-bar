@@ -123,7 +123,7 @@ step "4. First event fetch"
 # ---------------------------------------------------------------------------
 
 if [ "$CHECK_ONLY" = 1 ]; then
-  EVENTS="$HOME/Library/Application Support/meeting-notification-bar/events.json"
+  EVENTS="$HOME/Library/Application Support/meeting-bar/events.json"
   if [ -f "$EVENTS" ]; then
     ok "events.json exists ($(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).length))' "$EVENTS" 2>/dev/null || echo '?') events)"
   else
@@ -131,8 +131,8 @@ if [ "$CHECK_ONLY" = 1 ]; then
   fi
 else
   bash menubar/refresh-events.sh \
-    && ok "events written to ~/Library/Application Support/meeting-notification-bar/events.json" \
-    || warn "refresh failed — see ~/Library/Logs/meeting-notification-bar/menubar.log"
+    && ok "events written to ~/Library/Application Support/meeting-bar/events.json" \
+    || warn "refresh failed — see ~/Library/Logs/meeting-bar/menubar.log"
 fi
 
 # ---------------------------------------------------------------------------
@@ -145,21 +145,40 @@ if [ "$CHECK_ONLY" = 1 ]; then
   # refresh shim at build time, so compare that against $REPO. This is the exact confusion that hid
   # a broken install for 90 minutes: the app was running and healthy-looking while pointed at a
   # different directory, where its credentials were not.
-  RUNNING_PID="$(pgrep -f 'NextMeeting.app/Contents/MacOS/NextMeeting' | head -1 || true)"
-  SHIM="$HOME/Applications/NextMeeting.app/Contents/Resources/refresh-events.sh"
+  RUNNING_PID="$(pgrep -f 'MeetingBar.app/Contents/MacOS/MeetingBar' | head -1 || true)"
+  SHIM="$HOME/Applications/MeetingBar.app/Contents/Resources/refresh-events.sh"
   BUILT_FROM=""
-  [ -f "$SHIM" ] && BUILT_FROM="$(sed -n 's/^export MNB_HOME="${MNB_HOME:-\(.*\)}".*/\1/p' "$SHIM" | head -1)"
+  [ -f "$SHIM" ] && BUILT_FROM="$(sed -n 's/^export MEETING_BAR_HOME="${MEETING_BAR_HOME:-\(.*\)}".*/\1/p' "$SHIM" | head -1)"
 
   if [ -z "$RUNNING_PID" ]; then
-    warn "NextMeeting is not running — run: bash menubar/build.sh --install"
+    warn "MeetingBar is not running — run: bash menubar/build.sh --install"
   elif [ ! -f "$SHIM" ]; then
-    warn "a NextMeeting (pid $RUNNING_PID) is running but there is no app at ~/Applications/NextMeeting.app"
+    warn "a MeetingBar (pid $RUNNING_PID) is running but there is no app at ~/Applications/MeetingBar.app"
     warn "  it was started from somewhere else — quit it before installing, or the two will fight"
   elif [ -n "$BUILT_FROM" ] && [ "$BUILT_FROM" != "$REPO" ]; then
-    warn "NextMeeting is running (pid $RUNNING_PID) but was built from $BUILT_FROM, not this checkout"
+    warn "MeetingBar is running (pid $RUNNING_PID) but was built from $BUILT_FROM, not this checkout"
     warn "  so nothing you change here reaches it — rebuild: bash menubar/build.sh --install"
   else
-    ok "NextMeeting is running (pid $RUNNING_PID)"
+    ok "MeetingBar is running (pid $RUNNING_PID)"
+  fi
+
+  # A pre-rename install is a warning, not a note. This project used to be meeting-notification-bar
+  # with a NextMeeting.app, and upgrading across the rename does not disturb the old one: its
+  # LaunchAgent still starts it at login and its refresh still runs. Two countdowns sit in the menu
+  # bar and only one of them reflects this checkout — the same "running and healthy-looking, pointed
+  # somewhere else" failure the block above exists to catch.
+  #
+  # Identified by bundle id, never by the name NextMeeting: the separate meeting-vault variant
+  # installs an app of that name too, and warning about that one would be wrong.
+  LEGACY_APP="$HOME/Applications/NextMeeting.app"
+  LEGACY_ID=""
+  [ -d "$LEGACY_APP" ] && LEGACY_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$LEGACY_APP/Contents/Info.plist" 2>/dev/null || echo '')"
+  if [ "$LEGACY_ID" = "io.llinkas.meeting-notification-bar" ]; then
+    warn "the pre-rename install is still there ($LEGACY_APP) and will start at login alongside this one"
+    warn "  clear it with: bash uninstall.sh --legacy-only --dry-run   (then without --dry-run)"
+  elif [ -f "$HOME/Library/LaunchAgents/io.llinkas.meeting-notification-bar.menubar.plist" ]; then
+    warn "a pre-rename LaunchAgent is still loaded but its app is gone — launchd will retry it forever"
+    warn "  clear it with: bash uninstall.sh --legacy-only --dry-run   (then without --dry-run)"
   fi
 else
   bash menubar/build.sh --install
@@ -192,8 +211,8 @@ cat <<'MSG'
 
   If it says "Calendar —", nothing has been fetched yet:
       node bin/auth.js --check
-      tail -20 ~/Library/Logs/meeting-notification-bar/menubar.log
+      tail -20 ~/Library/Logs/meeting-bar/menubar.log
 
   To see what the menu bar thinks, from a terminal:
-      ~/Applications/NextMeeting.app/Contents/MacOS/NextMeeting --print
+      ~/Applications/MeetingBar.app/Contents/MacOS/MeetingBar --print
 MSG

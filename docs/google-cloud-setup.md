@@ -69,7 +69,7 @@ This must be the JSON you just downloaded in step 4, from the project you create
 not a file someone else sent you, and not one copied from another checkout.
 
 ```bash
-cd /path/to/meeting-notification-bar
+cd /path/to/meeting-bar
 mkdir -p .secrets
 mv ~/Downloads/client_secret_*.json .secrets/oauth-client.json
 chmod 700 .secrets && chmod 600 .secrets/oauth-client.json

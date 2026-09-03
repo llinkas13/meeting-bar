@@ -7,7 +7,7 @@
  * of Google, no fixtures to keep in sync: the parts that talk to the API are three lines each and
  * are exercised for real by `node bin/auth.js --check`.
  *
- * MNB_CONFIG is pointed at a fixture so the suite reads the same values on any machine, whether or
+ * MEETING_BAR_CONFIG is pointed at a fixture so the suite reads the same values on any machine, whether or
  * not the person running it has a config.json.
  */
 
@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 
-process.env.MNB_CONFIG = path.join(__dirname, 'fixture.config.json');
+process.env.MEETING_BAR_CONFIG = path.join(__dirname, 'fixture.config.json');
 
 const { joinUrlOf, tzOffset, todayIn } = require('../lib/calendar');
 const { docQuery } = require('../lib/drive');
@@ -216,8 +216,8 @@ test('config ignores a timezone key even if one is present in config.json', () =
   const dir = fs.mkdtempSync(path2.join(os.tmpdir(), 'mnb-cfg-'));
   const file = path2.join(dir, 'config.json');
   fs.writeFileSync(file, JSON.stringify({ calendarId: 'x', timezone: 'Pacific/Auckland' }));
-  const savedConfig = process.env.MNB_CONFIG;
-  process.env.MNB_CONFIG = file;
+  const savedConfig = process.env.MEETING_BAR_CONFIG;
+  process.env.MEETING_BAR_CONFIG = file;
   delete require.cache[require.resolve('../lib/paths')];
   delete require.cache[require.resolve('../lib/config')];
   try {
@@ -227,7 +227,7 @@ test('config ignores a timezone key even if one is present in config.json', () =
       assert.equal(cfg.timezone, 'America/New_York');
     });
   } finally {
-    process.env.MNB_CONFIG = savedConfig;
+    process.env.MEETING_BAR_CONFIG = savedConfig;
     fs.rmSync(dir, { recursive: true, force: true });
     delete require.cache[require.resolve('../lib/paths')];
     delete require.cache[require.resolve('../lib/config')];
