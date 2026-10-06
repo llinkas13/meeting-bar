@@ -93,12 +93,22 @@ function writeState(state) {
  */
 function fileNameFor(doc) {
   const date = String(doc.createdTime || '').slice(0, 10) || 'undated';
-  const slug = String(doc.name || 'untitled')
-    .toLowerCase()
-    .replace(/notes by gemini/gi, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || 'untitled';
+  const slug = (() => {
+    let s = String(doc.name || 'untitled')
+      .normalize('NFKD')
+      // Latin combining diacritics only (U+0300-U+036F), as escapes: a literal combining mark
+      // here would be invisible in an editor. CJK voicing marks (U+3099/309A) must survive —
+      // NFKD splits グ into ク + U+3099, and stripping every \p{M} would silently give ク.
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/notes by gemini/gi, '')
+      .replace(/[^\p{L}\p{N}\p{M}]+/gu, '-')
+      .replace(/^-+|-+$/g, '');
+    s = [...s].slice(0, 80).join('');
+    s = s.replace(/^-+|-+$/g, '');
+    s = s.normalize('NFC');
+    return s || 'untitled';
+  })();
   return `${date}-${slug}.md`;
 }
 
@@ -130,7 +140,12 @@ function resolveDest(doc, outDir) {
 /** YAML frontmatter, so a file can be traced back to its Doc without a lookup table. */
 function frontmatter(doc) {
   const owner = (doc.owners && doc.owners[0] && doc.owners[0].emailAddress) || '';
-  const esc = s => String(s).replace(/"/g, '\\"');
+  const esc = s => String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
   return [
     '---',
     `title: "${esc(doc.name)}"`,

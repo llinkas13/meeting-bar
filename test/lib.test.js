@@ -164,11 +164,53 @@ test('fileNameFor survives punctuation, unicode and a missing date', () => {
   assert.equal(fileNameFor({ name: '???' }), 'undated-untitled.md');
 });
 
+test('fileNameFor keeps CJK characters rather than collapsing to untitled', () => {
+  assert.equal(
+    fileNameFor({ name: '日本語ミーティング - Notes by Gemini', createdTime: '2026-08-17T14:00:00Z' }),
+    '2026-08-17-日本語ミーティング.md'
+  );
+});
+
+test('fileNameFor folds Latin accents to ASCII', () => {
+  assert.equal(
+    fileNameFor({ name: 'Café Sync — Notes by Gemini', createdTime: '2026-08-17T14:00:00Z' }),
+    '2026-08-17-cafe-sync.md'
+  );
+  assert.equal(
+    fileNameFor({ name: 'Ölberg 1:1', createdTime: '2026-08-17T14:00:00Z' }),
+    '2026-08-17-olberg-1-1.md'
+  );
+});
+
+test('fileNameFor strips filesystem- and Obsidian-hostile characters', () => {
+  const hostile = '/\\:*?"<>|#^[]';
+  const name = `Weird${hostile}Title`;
+  const result = fileNameFor({ name, createdTime: '2026-08-17T14:00:00Z' });
+  for (const ch of hostile) {
+    assert.ok(!result.includes(ch), `${JSON.stringify(ch)} survived in ${result}`);
+  }
+});
+
+test('fileNameFor caps at 80 characters without splitting a surrogate pair or leaving a trailing dash', () => {
+  const name = '𝔘'.repeat(90);
+  const result = fileNameFor({ name, createdTime: '2026-08-17T14:00:00Z' });
+  const slug = result.replace('2026-08-17-', '').replace('.md', '');
+  assert.equal([...slug].length, 80);
+  assert.ok(!slug.includes('�'), slug);
+  assert.ok(!slug.endsWith('-'), slug);
+});
+
 test('frontmatter escapes quotes in the title so the YAML stays parseable', () => {
   const fm = frontmatter({ id: 'abc', name: 'The "big" review' });
   assert.ok(fm.includes('title: "The \\"big\\" review"'), fm);
   assert.ok(fm.includes('doc_id: abc'));
   assert.ok(fm.startsWith('---\n') && fm.trimEnd().endsWith('---'));
+});
+
+test('frontmatter escapes a backslash as well as a quote', () => {
+  const fm = frontmatter({ id: 'abc', name: 'Q3 \\ Roadmap "v2"' });
+  const line = fm.split('\n').find(l => l.startsWith('title:'));
+  assert.equal(line, 'title: "Q3 \\\\ Roadmap \\"v2\\""');
 });
 
 // ---------------------------------------------------------------------------
